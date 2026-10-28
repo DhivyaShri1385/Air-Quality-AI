@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.streamlit/secrets.toml
+
+models/*.joblib
+models/*.json
+data/processed/*
+!data/processed/.gitkeep
+
+# Exceeds GitHub's per-file limit and is not used by the current daily-city app
+dataset/station_hour.csv
+
+# Local editor and OS files
+.vscode/*
+!.vscode/settings.json
+Thumbs.db
+*.log
