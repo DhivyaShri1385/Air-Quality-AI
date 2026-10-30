@@ -9,3 +9,5 @@ def test_cpcb_boundaries():
     assert classify_aqi(301) == "Very Poor"
     assert classify_aqi(500) == "Severe"
     assert classify_aqi(501) == "Above Standard Scale"
+    assert classify_aqi(-1) == "Invalid"
+    assert classify_aqi(float("nan")) == "Invalid"

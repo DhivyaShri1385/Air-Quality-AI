@@ -8,6 +8,10 @@ import pandas as pd
 PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 DATA_PATH: Final[Path] = PROJECT_ROOT / "dataset" / "city_day.csv"
 REQUIRED_COLUMNS: Final[set[str]] = {"City", "Date", "AQI"}
+POLLUTANT_COLUMNS: Final[set[str]] = {
+    "PM2.5", "PM10", "NO", "NO2", "NOx", "NH3", "CO", "SO2", "O3",
+    "Benzene", "Toluene", "Xylene",
+}
 
 
 def load_city_daily_data(path: str | Path = DATA_PATH) -> pd.DataFrame:
@@ -21,20 +25,23 @@ def load_city_daily_data(path: str | Path = DATA_PATH) -> pd.DataFrame:
         raise ValueError(f"Dataset is missing required columns: {sorted(missing)}")
     if frame.empty:
         raise ValueError(f"Dataset is empty: {csv_path}")
-    frame["Date"] = pd.to_datetime(frame["Date"], errors="coerce")
+    frame["City"] = frame["City"].astype("string").str.strip()
+    frame["Date"] = pd.to_datetime(frame["Date"], errors="coerce").dt.normalize()
     frame["AQI"] = pd.to_numeric(frame["AQI"], errors="coerce")
     frame = frame.dropna(subset=["City", "Date", "AQI"]).copy()
-    frame["City"] = frame["City"].astype(str).str.strip()
+    frame = frame[(frame["City"] != "") & (frame["AQI"] >= 0)].copy()
+    for column in pollutant_columns(frame):
+        frame[column] = pd.to_numeric(frame[column], errors="coerce")
+        frame.loc[frame[column] < 0, column] = float("nan")
+    frame = frame.sort_values(["City", "Date"], kind="stable")
+    frame = frame.drop_duplicates(subset=["City", "Date"], keep="last")
     return frame.sort_values(["Date", "City"]).reset_index(drop=True)
 
 
 def pollutant_columns(frame: pd.DataFrame) -> list[str]:
     """Return numeric pollutant columns present in the supplied frame."""
-    excluded = {"AQI"}
     return [
         column
         for column in frame.columns
-        if column not in excluded
-        and column not in {"City", "Date", "AQI_Bucket"}
-        and pd.api.types.is_numeric_dtype(frame[column])
+        if column in POLLUTANT_COLUMNS
     ]

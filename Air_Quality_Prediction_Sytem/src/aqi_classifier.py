@@ -1,23 +1,24 @@
-"""CPCB National Air Quality Index classification."""
+"""Centralized CPCB National Air Quality Index category boundaries."""
+
+from math import isfinite
+
+CATEGORY_BOUNDARIES = (
+    (50, "Good"), (100, "Satisfactory"), (200, "Moderately Polluted"),
+    (300, "Poor"), (400, "Very Poor"), (500, "Severe"),
+)
 
 
 def classify_aqi(value: float) -> str:
     """Return the CPCB category, including explicit handling above 500."""
-    value = float(value)
-    if value < 0:
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
         return "Invalid"
-    if value <= 50:
-        return "Good"
-    if value <= 100:
-        return "Satisfactory"
-    if value <= 200:
-        return "Moderately Polluted"
-    if value <= 300:
-        return "Poor"
-    if value <= 400:
-        return "Very Poor"
-    if value <= 500:
-        return "Severe"
+    if not isfinite(value) or value < 0:
+        return "Invalid"
+    for upper_bound, category in CATEGORY_BOUNDARIES:
+        if value <= upper_bound:
+            return category
     return "Above Standard Scale"
 
 
