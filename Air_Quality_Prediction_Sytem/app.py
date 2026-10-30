@@ -68,11 +68,11 @@ def render_kpis(latest: pd.Series, result: dict | None, metadata: dict | None) -
     observed = float(latest["AQI"])
     observed_category = classify_aqi(observed)
     with row[0]:
-        kpi_card("Latest observed AQI", f"{observed:.0f}", f"Observed {pd.Timestamp(latest['Date']).date()}", COLORS["blue"], observed_category)
+        kpi_card("Latest historical AQI", f"{observed:.0f}", f"Observed {pd.Timestamp(latest['Date']).date()}", COLORS["blue"], observed_category)
     if result:
         predicted = float(result["predicted_aqi"])
         with row[1]:
-            kpi_card("Next-day forecast AQI", f"{predicted:.0f}", f"Target {pd.Timestamp(result['target_date']).date()}", COLORS["green"], result["predicted_category"])
+            kpi_card("Historical next-day AQI", f"{predicted:.0f}", f"Target {pd.Timestamp(result['target_date']).date()}", COLORS["green"], result["predicted_category"])
         change = predicted - observed
         arrow = "↑" if change > 0 else "↓" if change < 0 else "→"
         tint = COLORS["red"] if change > 0 else COLORS["green"]
@@ -99,7 +99,7 @@ def add_aqi_bands(fig: go.Figure, ymax: float) -> None:
         fig.add_hrect(y0=low, y1=min(high, ymax), fillcolor=AQI_COLORS[category], opacity=0.035, line_width=0, layer="below")
     for level in [50, 100, 200, 300, 400, 500]:
         if level < ymax:
-            fig.add_hline(y=level, line_width=1, line_dash="dot", line_color="#476176", opacity=.65)
+            fig.add_hline(y=level, line_width=1, line_dash="dot", line_color="#CBD2D9", opacity=.8)
 
 
 def render_trend(city_data: pd.DataFrame, result: dict | None, widget_key: str = "trend_range") -> None:
@@ -219,10 +219,10 @@ def india_map(data: pd.DataFrame) -> go.Figure | None:
             hovertemplate="%{text}<br>%{customdata[0]:.0f} AQI · %{customdata[1]}<br>" + category + "<extra></extra>"))
     fig.update_geos(scope="asia", projection_type="mercator", center={"lat": 22.5, "lon": 79.5},
                     lataxis_range=[5, 38], lonaxis_range=[67, 98], showland=True,
-                    landcolor="#102A40", showocean=True, oceancolor="#071321",
-                    showlakes=True, lakecolor="#0A1D2D", showcountries=True,
-                    countrycolor="#35536A", countrywidth=.7, showcoastlines=True,
-                    coastlinecolor="#35536A", coastlinewidth=.6, showframe=False,
+                    landcolor="#ECEFF3", showocean=True, oceancolor="#F7F8FA",
+                    showlakes=True, lakecolor="#F7F8FA", showcountries=True,
+                    countrycolor="#C7CDD4", countrywidth=.7, showcoastlines=True,
+                    coastlinecolor="#C7CDD4", coastlinewidth=.6, showframe=False,
                     bgcolor="rgba(0,0,0,0)")
     fig.update_layout(height=460, margin={"l": 0, "r": 0, "t": 10, "b": 0},
                       legend={"title": {"text": "AQI category"}, "orientation": "h", "y": -.04})
@@ -242,7 +242,7 @@ def render_city_map(data: pd.DataFrame) -> None:
 
 def render_dashboard(city: str, data: pd.DataFrame, city_data: pd.DataFrame, latest: pd.Series,
                      result: dict | None, metadata: dict | None, alert: dict | None) -> None:
-    page_header("Dashboard", "A city-level view of recorded air quality and the next-calendar-day model forecast.")
+    page_header("Dashboard", "Historical air quality observations and a forecast for the next calendar day in the dataset.")
     render_kpis(latest, result, metadata)
     if result is None:
         st.warning("The forecast could not be loaded. " + (metadata if isinstance(metadata, str) else "Check model artifacts or city history."))
@@ -251,7 +251,7 @@ def render_dashboard(city: str, data: pd.DataFrame, city_data: pd.DataFrame, lat
         panel_heading("India pollution view", "Latest available historical AQI by city")
         render_city_map(data)
     with top_right:
-        panel_heading("AQI trend", "Observed values with a single next-day forecast point")
+        panel_heading("Historical AQI trend", "Observed values with one dated forecast point")
         render_trend(city_data, result, "dashboard_trend_range")
     st.write("")
     left, right = st.columns([1.15, .85], gap="large")
@@ -282,14 +282,14 @@ def render_dashboard(city: str, data: pd.DataFrame, city_data: pd.DataFrame, lat
 
 
 def render_prediction(city: str, city_data: pd.DataFrame, result: dict | None, error: str | None) -> None:
-    page_header("AQI Prediction", "A next-calendar-day estimate based only on readings available at forecast time.")
+    page_header("AQI Prediction", "Historical model estimate for the calendar day after the latest dataset observation.")
     if result is None:
         st.error(f"Prediction unavailable: {error or 'No valid model result.'}")
         st.info("Check the selected city's history or run `python -m src.train_model` to create matching model artifacts.")
         return
     columns = st.columns(4, gap="medium")
     for col, args in zip(columns, [
-        ("Forecast AQI", f"{result['predicted_aqi']:.0f}", result["predicted_category"], COLORS["green"]),
+        ("Historical forecast AQI", f"{result['predicted_aqi']:.0f}", result["predicted_category"], COLORS["green"]),
         ("Forecast origin", str(pd.Timestamp(result["forecast_origin_date"]).date()), "Latest eligible observation", COLORS["blue"]),
         ("Target date", str(pd.Timestamp(result["target_date"]).date()), "Exactly one calendar day later", COLORS["accent"]),
         ("Model", result["model"], f"Persistence baseline {result['persistence_baseline']:.0f}", COLORS["yellow"]),
@@ -298,7 +298,7 @@ def render_prediction(city: str, city_data: pd.DataFrame, result: dict | None, e
             kpi_card(*args[:3], args[3], args[2] if args[0] == "Forecast AQI" else None)
     st.markdown("#### Observed history and forecast")
     render_trend(city_data, result, "prediction_trend_range")
-    st.caption("The dotted boundary marks the target date. A single forecast point is shown; no intervening daily predictions are synthesized.")
+    st.caption("Forecast origin and target are dataset dates. This is a historical model forecast, not a current or real-time AQI reading.")
     st.markdown("#### Model inputs")
     st.write("Features include current AQI, city-scoped AQI lags and trailing means, available pollutant readings and their historical lags, and calendar fields. Missing pollutant values are transformed by the fitted training pipeline.")
 
@@ -328,7 +328,7 @@ def render_analytics(data: pd.DataFrame, city: str, city_data: pd.DataFrame) -> 
         panel_heading("Correlation", "Pairwise correlation of available city observations")
         corr = [col for col in available if city_data[col].notna().sum() > 1]
         if len(corr) > 1:
-            fig = px.imshow(city_data[corr].corr(), text_auto=".2f", color_continuous_scale=[[0, "#236B83"], [.5, "#10243A"], [1, "#F6C85F"]], zmin=-1, zmax=1)
+            fig = px.imshow(city_data[corr].corr(), text_auto=".2f", color_continuous_scale=[[0, "#405A75"], [.5, "#FFFFFF"], [1, "#C62828"]], zmin=-1, zmax=1)
             st.plotly_chart(style_chart(fig, "Pollutant correlation"), use_container_width=True)
         else:
             empty_state("At least two populated measures are needed.")
@@ -433,9 +433,9 @@ def render_about() -> None:
 
 def main() -> None:
     st.sidebar.markdown('<div class="aq-brand"><span class="aq-mark">⌁</span><span>Air Quality<br>Intelligence</span></div><div class="aq-side-label">Workspace</div>', unsafe_allow_html=True)
-    pages = ["Dashboard", "AQI Prediction", "Pollution Analytics", "Geospatial Analytics", "Model Performance", "Pollution Alerts", "Explainable AI", "About Project"]
+    pages = ["Dashboard", "AQI Prediction", "Pollution Analytics", "Model Performance", "Pollution Alerts", "Explainable AI", "About Project"]
     page = st.sidebar.radio("Navigation", pages, label_visibility="collapsed", key="navigation")
-    st.sidebar.markdown('<div class="aq-side-label">Data source</div><div style="padding:.3rem .4rem;color:#91a8bb;font-size:.76rem">Indian city daily observations<br>Historical dataset · city_day.csv</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="aq-side-label">Data source</div><div style="padding:.3rem .4rem;color:#667085;font-size:.76rem">Indian city daily observations<br>Historical dataset · city_day.csv</div>', unsafe_allow_html=True)
     try:
         data = get_data()
     except (FileNotFoundError, ValueError, OSError) as exc:
@@ -455,7 +455,7 @@ def main() -> None:
     if latest is None:
         empty_state(f"No usable historical observations are available for {city}.")
         return
-    st.caption(f"Latest observation: {pd.Timestamp(latest['Date']).date()} · Next calendar date: {next_date.date()} · Coverage: {city_data['Date'].min().date()} – {city_data['Date'].max().date()}")
+    st.caption(f"Historical data · Latest observation: {pd.Timestamp(latest['Date']).date()} · Forecast target: {next_date.date()} · City coverage: {city_data['Date'].min().date()} – {city_data['Date'].max().date()} · Not live data")
     result = model = metadata = alert = error = None
     if page in {"Dashboard", "AQI Prediction", "Pollution Alerts"}:
         result, model, metadata, error = safe_forecast(city, data)
@@ -472,9 +472,6 @@ def main() -> None:
         render_prediction(city, city_data, result, error)
     elif page == "Pollution Analytics":
         render_analytics(data, city, city_data)
-    elif page == "Geospatial Analytics":
-        page_header("Geospatial Analytics", "A city-level pollution view using attributed reference coordinates where available.")
-        render_city_map(data)
     elif page == "Model Performance":
         render_performance(metadata, error)
     elif page == "Pollution Alerts":
